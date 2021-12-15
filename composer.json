@@ -10,8 +10,7 @@
     ],
     "homepage": "https://github.com/shisun/laravel-elasticsearch-query-builder",
     "keywords": ["Laravel", "LaravelElasticsearchQueryBuilder", "elasticsearch"],
-    "require": {
-        "illuminate/support": "~5",
+    "require": {        
         "elasticsearch/elasticsearch": "*"
     },
     "require-dev": {

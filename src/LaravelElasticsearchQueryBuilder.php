@@ -4,6 +4,7 @@ namespace Shisun\LaravelElasticsearchQueryBuilder;
 use Elasticsearch\ClientBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Model as Eloquent;
+use Illuminate\Support\Str;
 
 class LaravelElasticsearchQueryBuilder {
 
@@ -242,11 +243,11 @@ class LaravelElasticsearchQueryBuilder {
 	}
 
 	public function whereNull($column) {
-		return $this->where(snake_case($column), '=', null);
+		return $this->where(Str::snake($column), '=', null);
 	}
 
 	public function whereNotNull($column) {
-		return $this->where(snake_case($column), '!=', null);
+		return $this->where(Str::snake($column), '!=', null);
 	}
 
 	/**
@@ -262,7 +263,7 @@ class LaravelElasticsearchQueryBuilder {
 		$column = $this->prepended_path ? $this->prepended_path . '.' . $column : $column;
 		$columns = explode('.', $column);
 		foreach($columns as $index => $column) {
-			$columns[$index] = snake_case($column);
+			$columns[$index] = Str::snake($column);
 		}
 		$column = implode('.', $columns);
 		if($value == null) {
@@ -426,7 +427,7 @@ class LaravelElasticsearchQueryBuilder {
 		}
 		$column_bak = $column;
 		$this->getMappingProperty($column, true);
-		$builder = $this->nested_queries[$column_bak] ?? new LaravelElasticsearchQueryBuilder($this->model, snake_case($column_bak));
+		$builder = $this->nested_queries[$column_bak] ?? new LaravelElasticsearchQueryBuilder($this->model, Str::snake($column_bak));
 		$closure($builder);
 		$nested_query = $this->createNestedQuery($column_bak, $builder, '');
 		$this->query['bool'][$or ? 'should' : 'filter'][] =
@@ -446,7 +447,7 @@ class LaravelElasticsearchQueryBuilder {
 			/**
 			 * Prepend index name to column name
 			 */
-			$column_field = $this->getIndexName().'.'.snake_case($column);
+			$column_field = $this->getIndexName().'.'.Str::snake($column);
 
 			$this->query['bool'][$or ? 'should' : 'filter'][] = [
 				'bool' => [
@@ -467,7 +468,7 @@ class LaravelElasticsearchQueryBuilder {
 		} else {
 			$column_bak = $column;
 			$this->getMappingProperty($column, true);
-			$builder = $this->nested_queries[$column_bak] ?? new LaravelElasticsearchQueryBuilder($this->model, snake_case($column_bak));
+			$builder = $this->nested_queries[$column_bak] ?? new LaravelElasticsearchQueryBuilder($this->model, Str::snake($column_bak));
 			$closure($builder);
 			$nested_query = $this->createNestedQuery($column_bak, $builder, '');
 			$this->query['bool'][$or ? 'should' : 'filter'][] = [
@@ -511,7 +512,7 @@ class LaravelElasticsearchQueryBuilder {
 		}
 		$columns = explode('.', $column);
 		$query = [];
-		$path .= $path ? '.' . snake_case($columns[0]) : snake_case($columns[0]);
+		$path .= $path ? '.' . Str::snake($columns[0]) : Str::snake($columns[0]);
 		$sub_query = $this->createNestedQuery(implode('.', array_slice($columns, 1)), $builder, $path);
 
 		/**
@@ -576,7 +577,7 @@ class LaravelElasticsearchQueryBuilder {
 	public function with(String ...$relations) {
 		foreach($relations as $relation) {
 			$tokens = explode('.', $relation);
-			if(snake_case(end($tokens)) == end($tokens)) {
+			if(Str::snake(end($tokens)) == end($tokens)) {
 				throw new \Exception("Invalid relationship");
 			}
 			$result = $this->getMappingProperty($relation, true);
@@ -594,7 +595,7 @@ class LaravelElasticsearchQueryBuilder {
 	public function withOut(String ...$relations) {
 		foreach($relations as $relation) {
 			$tokens = explode('.', $relation);
-			if(snake_case(end($tokens)) == end($tokens)) {
+			if(Str::snake(end($tokens)) == end($tokens)) {
 				throw new \Exception("Invalid relationship");
 			}
 			$result = $this->getMappingProperty($relation, true);
@@ -800,7 +801,7 @@ class LaravelElasticsearchQueryBuilder {
 		 * @link https://www.elastic.co/guide/en/elasticsearch/reference/current/sort-search-results.html
 		 * prepend index Name to column name
 		 */
-		$column_field = $this->getIndexName().'.'.snake_case($column) . $sub_field;
+		$column_field = $this->getIndexName().'.'.Str::snake($column) . $sub_field;
 
 		if($is_relation) {
 			$this->order[$column_field] = [
@@ -1007,11 +1008,11 @@ class LaravelElasticsearchQueryBuilder {
 	 */
 	public function aggregateOn($relation, $agg, $custom_name = null) {		
 		$this->getMappingProperty($relation, true);
-		$custom_name = $custom_name ?? snake_case($relation);
+		$custom_name = $custom_name ?? Str::snake($relation);
 		$builder = new LaravelElasticsearchQueryBuilder($this->model, $relation);
 		$this->aggs[$custom_name] = [
 			'nested' => [
-				'path' => snake_case($relation)
+				'path' => Str::snake($relation)
 			],
 			'aggs' => $builder->aggregate($relation, $agg)->getAggs()
 		];
@@ -1313,8 +1314,8 @@ class LaravelElasticsearchQueryBuilder {
 		$snake_case = [];
 		if($this->mapping_properties === false) {
 			foreach ($columns as $index => $column) {
-				$snake_case[] = snake_case($column);
-				if(snake_case($column) == $column || ($is_relation && $index == count($columns) - 1)) {
+				$snake_case[] = Str::snake($column);
+				if(Str::snake($column) == $column || ($is_relation && $index == count($columns) - 1)) {
 					return array(implode('.', $snake_case), []);
 				}
 			}
@@ -1325,14 +1326,14 @@ class LaravelElasticsearchQueryBuilder {
 			throw new \Exception("Mapping properties not accessible.");
 		}
 		foreach($columns as $index => $col) {
-			if( ! in_array(snake_case($col), array_keys($mapping_properties))) {
+			if( ! in_array(Str::snake($col), array_keys($mapping_properties))) {
 				throw new \Exception("Invalid elasticsearch field '$column'");
 			}
-			$snake_case[] = snake_case($col);
-			if(snake_case($col) == $col || ($is_relation && $index == count($columns) - 1)) {
-				return array(implode('.', $snake_case), $mapping_properties[snake_case($col)]);
+			$snake_case[] = Str::snake($col);
+			if(Str::snake($col) == $col || ($is_relation && $index == count($columns) - 1)) {
+				return array(implode('.', $snake_case), $mapping_properties[Str::snake($col)]);
 			}
-			$mapping_properties = $mapping_properties[snake_case($col)]['properties'];
+			$mapping_properties = $mapping_properties[Str::snake($col)]['properties'];
 		}
 		throw new \Exception("Invalid elasticsearch field '$column'");
 	}
