@@ -828,10 +828,8 @@ class LaravelElasticsearchQueryBuilder {
 	 */
 	public function get() {
 		$this->query = $this->array_remove_empty($this->query, 1);
-		$params = $this->constructParams();
-		// \Illuminate\Support\Facades\Log::info(__FILE__.'-'.__LINE__);
-		$this->raw_results = $this->es_client->search($params);
-		// \Illuminate\Support\Facades\Log::info(json_encode($this->raw_results));
+		$params = $this->constructParams();		
+		$this->raw_results = $this->es_client->search($params);		
 
 		return $this;
 	}
@@ -1274,6 +1272,7 @@ class LaravelElasticsearchQueryBuilder {
 	}
 
 	public function getBody() {
+		$this->query = $this->array_remove_empty($this->query, 1);
 		return $this->constructParams();
 	}
 
@@ -1392,7 +1391,7 @@ class LaravelElasticsearchQueryBuilder {
 				'query' => $this->query,
 				'sort' => $this->order,
 				'size' => $this->limit ?: 100,
-				'from' => $this->page ? ($this->page - 1) * $this->records_per_page : $this->offset
+				'from' => $this->page ? ($this->page - 1) * $this->records_per_page : $this->offset,				
 			]
 		];
 		if($this->with) {
