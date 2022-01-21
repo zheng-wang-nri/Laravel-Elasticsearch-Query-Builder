@@ -1210,6 +1210,7 @@ class LaravelElasticsearchQueryBuilder {
 	}
 
 	public function getBody() {
+		$this->query = $this->array_remove_empty($this->query, 1);
 		return $this->constructParams();
 	}
 
