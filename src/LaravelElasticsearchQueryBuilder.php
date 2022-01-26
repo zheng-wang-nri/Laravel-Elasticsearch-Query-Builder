@@ -158,6 +158,7 @@ class LaravelElasticsearchQueryBuilder {
 	 * @throws \Exception
 	 */
 	public function where($column, $operator = null, $value = null, $or = false, $boost = false) {
+
 		if(is_callable($column) && ! is_string($column)) {
 			$builder = new LaravelElasticsearchQueryBuilder($this->model, $this->prepended_path);
 			$column($builder);
@@ -166,10 +167,17 @@ class LaravelElasticsearchQueryBuilder {
 			$this->query['bool']['must'][] = $query;
 			return $this;
 		}
+
 		$column = $this->prepended_path ? $this->prepended_path . '.' . $column : $column;
 		$column_bak = $column;
 		$result = $this->getMappingProperty($column);
-		$column = $result[0];
+
+		/**
+		 * prepend index name to column name		 
+		 * $column = $result[0];
+		 */
+		$column = $this->getIndexName().'.'.$result[0];
+		
 		if($value == null && func_num_args() == 2) {
 			$value = $operator;
 			$operator = '=';
@@ -319,7 +327,13 @@ class LaravelElasticsearchQueryBuilder {
 		$column = $this->prepended_path ? $this->prepended_path . '.' . $column : $column;
 		$column_bak = $column;
 		$result = $this->getMappingProperty($column);
-		$column = $result[0];
+
+		/**
+		 * prepend index name to column
+		 * $column = $result[0];
+		 */
+		$column = $this->getIndexName().'.'.$column;
+
 		$this->validateValue($column_bak, $value);
 		if($options) {
 			if($value !== null) {
@@ -377,7 +391,13 @@ class LaravelElasticsearchQueryBuilder {
 		$column = $this->prepended_path ? $this->prepended_path . '.' . $column : $column;
 		$column_bak = $column;
 		$result = $this->getMappingProperty($column);
-		$column = $result[0];
+
+		/**
+		 * prepend index name to column
+		 * $column = $result[0];
+		 */
+		$column = $this->getIndexName().'.'.$result[0];
+
 		$this->validateValue($column_bak, $value);
 		$match = [];
 		if($options) {
@@ -406,7 +426,7 @@ class LaravelElasticsearchQueryBuilder {
 		}
 		$column_bak = $column;
 		$this->getMappingProperty($column, true);
-		$builder = $this->nested_queries[$column_bak] ?? new LaravelElasticsearchQueryBuilder($this->model, $column_bak);
+		$builder = $this->nested_queries[$column_bak] ?? new LaravelElasticsearchQueryBuilder($this->model, snake_case($column_bak));
 		$closure($builder);
 		$nested_query = $this->createNestedQuery($column_bak, $builder, '');
 		$this->query['bool'][$or ? 'should' : 'filter'][] =
@@ -422,15 +442,21 @@ class LaravelElasticsearchQueryBuilder {
 	 */
 	public function whereHasNull($column, $closure = null, $or = false) {
 		if($closure === null) {
+
+			/**
+			 * Prepend index name to column name
+			 */
+			$column_field = $this->getIndexName().'.'.snake_case($column);
+
 			$this->query['bool'][$or ? 'should' : 'filter'][] = [
 				'bool' => [
 					'must_not' => [
 						[
 							'nested' => [
-								'path' => snake_case($column),
+								'path' => $column_field,
 								'query' => [
 									'exists' => [
-										'field' => snake_case($column)
+										'field' => $column_field
 									]
 								]
 							]
@@ -441,7 +467,7 @@ class LaravelElasticsearchQueryBuilder {
 		} else {
 			$column_bak = $column;
 			$this->getMappingProperty($column, true);
-			$builder = $this->nested_queries[$column_bak] ?? new LaravelElasticsearchQueryBuilder($this->model, $column_bak);
+			$builder = $this->nested_queries[$column_bak] ?? new LaravelElasticsearchQueryBuilder($this->model, snake_case($column_bak));
 			$closure($builder);
 			$nested_query = $this->createNestedQuery($column_bak, $builder, '');
 			$this->query['bool'][$or ? 'should' : 'filter'][] = [
@@ -487,6 +513,12 @@ class LaravelElasticsearchQueryBuilder {
 		$query = [];
 		$path .= $path ? '.' . snake_case($columns[0]) : snake_case($columns[0]);
 		$sub_query = $this->createNestedQuery(implode('.', array_slice($columns, 1)), $builder, $path);
+
+		/**
+		 * Prepend index name to path for nested query.
+		 */
+		$path = $this->getIndexName().'.'.$path;
+		
 		if($sub_query === false) {
 			$query['nested'] = [
 				'path'  => $path,
@@ -628,7 +660,13 @@ class LaravelElasticsearchQueryBuilder {
 			return $this->where('id', -9999);
 		}
 		$result = $this->getMappingProperty($column);
-		$column = $result[0];
+		
+		/**
+		 * Prepend index name to column name
+		 * $column = $result[0];
+		 */
+		$column = $this->getIndexName().'.'.$column;
+
 		if($or) {
 			$this->query['bool']['should'][] = ['terms' => [$column => $values]];
 		} else {
@@ -757,6 +795,13 @@ class LaravelElasticsearchQueryBuilder {
 			$this->order['_script'] = ['type' => 'number', 'script' => $script, 'order' => $order];
 			return $this;
 		}
+
+		/**
+		 * @link https://www.elastic.co/guide/en/elasticsearch/reference/current/sort-search-results.html
+		 * prepend index Name to column name
+		 */
+		$column_field = $this->getIndexName().'.'.snake_case($column) . $sub_field;
+
 		if($is_relation) {
 			$this->order[snake_case($column) . $sub_field] = [
 				'order' => $order,
@@ -980,7 +1025,12 @@ class LaravelElasticsearchQueryBuilder {
 	public function groupBy($column, $size = 10) {
 		$prepended_column = $this->prepended_path ? ($this->prepended_path . '.' . $column) : $column;
 		$result = $this->getMappingProperty($prepended_column);
-		$column = $result[0];
+
+		/**
+		 * Prepend index name to column name
+		 * $column = $result[0];
+		 */
+		$column = $this->getIndexName().'.'.$result[0];
 		$this->query['terms'] = [
 			'field' => $column
 		];
@@ -1094,8 +1144,14 @@ class LaravelElasticsearchQueryBuilder {
 		$this->es_client = $this->createClient();
 		$this->mapping_properties = $this->model->mappingProperties ?? false;
 		$this->index_name = method_exists($model, 'getIndexName') ? $model->getIndexName() : 'index_name';
-		$this->type_name = method_exists($model, 'getTypeName') ? $model->getTypeName() :
-			(method_exists($model, 'getIndexName') ? $model->getIndexName() : 'type_name');
+
+		/**
+		 * @link https://www.elastic.co/guide/en/elasticsearch/reference/current/removal-of-types.html
+		 */
+		// $this->type_name = method_exists($model, 'getTypeName') ? $model->getTypeName() :
+		// 	(method_exists($model, 'getIndexName') ? $model->getIndexName() : 'type_name');
+		$this->type_name = '_doc';
+
 		$this->validation = isset($model->mappingProperties) ? 'strict' : false;
 		$this->key_name = method_exists($model, 'getKeyName') ? $model->getKeyName() : 'id';
 	}
@@ -1108,11 +1164,11 @@ class LaravelElasticsearchQueryBuilder {
 		if( ! is_array($this->raw_results)) {
 			return $items;
 		}
-		if((int)$this->raw_results['hits']['total'] === 0) {
+		if((int)$this->raw_results['hits']['total']['value'] === 0) {
 			return $items;
 		}
 		foreach($this->raw_results['hits']['hits'] as $index => $item) {
-			$result = $item['_source'];
+			$result = $item['_source'][$this->index_name];
 			$result['_score'] = $item['_score'];
 			$items[] = $result;
 		}
@@ -1160,12 +1216,16 @@ class LaravelElasticsearchQueryBuilder {
 		$paginate['next'] = false;
 		$paginate['per_page'] = $this->records_per_page;
 
-		if((int)$this->raw_results['hits']['total'] === 0) {
+		if((int)$this->raw_results['hits']['total']['value'] === 0) {
 			return $paginate;
 		}
 
-		$rows = $this->raw_results['hits']['total'];
-		$pages = ceil($this->raw_results['hits']['total'] / $this->records_per_page);
+		$rows = $this->raw_results['hits']['total']['value'];
+		/**
+		 * @link https://www.elastic.co/guide/en/elasticsearch/reference/current/search-search.html
+		 * $page = ceil($this->raw_results['hits']['total'] / $this->records_per_page);
+		 */
+		$pages = ceil($rows / $this->records_per_page);
 		$page = ($this->page < 1) ? 1: (($this->page > $pages) ? $pages : $this->page);
 		$half = floor($paginatelimit / 2);
 
