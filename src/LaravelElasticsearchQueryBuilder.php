@@ -803,12 +803,12 @@ class LaravelElasticsearchQueryBuilder {
 		$column_field = $this->getIndexName().'.'.snake_case($column) . $sub_field;
 
 		if($is_relation) {
-			$this->order[snake_case($column) . $sub_field] = [
+			$this->order[$column_field] = [
 				'order' => $order,
 				'nested_path'  => implode('.', array_slice(explode('.', $name), 0, count(explode('.', $name)) - 1))
 			];
 		} else {
-			$this->order[snake_case($column) . $sub_field] = ['order' => $order];
+			$this->order[$column_field] = ['order' => $order];
 		}
 		return $this;
 	}
